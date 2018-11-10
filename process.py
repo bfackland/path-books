@@ -8,20 +8,23 @@ INDEX_HTML = 'webarchive-index.html'
 
 
 soup = BeautifulSoup(open('%s/%s' % (SOURCE_FOLDER, INDEX_HTML)), 'html.parser')
-posts = soup.find_all('div', {'class':'section_feed'})[:3]
+posts = soup.find_all('div', {'class':'section_feed'})[:10]
 
 
 for post in posts:
     poster = post.find('a', {'class':'tit_profile'})
-    if poster:
-        poster = poster.text
+    poster = poster.text
     date = post.find('a', {'class':'desc_profile'})
-    if date:
-        date = date.text
+    date = date.text
     info = post.find('strong', {'class':'tit_feed'})
     if info:
         info = info.text
-    print(poster, date, info)
+    
+    print('==========================')
+    print(poster, date)
+    print('--------------------------')
+    if info:
+        print(info)
 
     image = post.find('img', {'class':'img_figure'})
     if image:
@@ -42,5 +45,29 @@ for post in posts:
             if emotion:
                 emotion = emotion.text
             print(person, emotion)
-        
-#    import pdb; pdb.set_trace()
+
+#     info_cmt = post.find('div', {'class':'info_cmt'})
+#     comment = None
+#     if info_cmt:
+#         cont_cmt = info_cmt.find('span', {'class':'cont_cmt'})
+#         if cont_cmt:
+#             spans = cont_cmt.find_all('span')
+#             for span in spans:
+#                 sub_span = span.find('span')
+#                 if sub_span:
+#                     comment = sub_span.text
+#                     print(comment)
+#                     break
+
+    desc_thought = post.find('p', {'class':'desc_thought'})
+    thought = None
+    if desc_thought:
+        spans = desc_thought.find_all('span')
+        for span in spans:
+            sub_span = span.find('span')
+            if sub_span:
+                thought = sub_span.text
+                print(thought)
+                break
+
+    #import pdb; pdb.set_trace()

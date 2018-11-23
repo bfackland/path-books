@@ -1,27 +1,55 @@
 from bs4 import BeautifulSoup
 from os.path import exists
 from PIL import Image
-
+from datetime import datetime, timedelta
 
 SOURCE_FOLDER = '/Users/wasl/Documents/Path backups/Path feed forever/'
 INDEX_HTML = 'webarchive-index.html'
+BASE_DATE = datetime(year=2018, month=10, day=18)
+AVERGAGE_DAYS_IN_A_YEAR = 365.25
+AVERGAGE_DAYS_IN_A_MONTH = AVERGAGE_DAYS_IN_A_YEAR / 12.0
 
 
 soup = BeautifulSoup(open('%s/%s' % (SOURCE_FOLDER, INDEX_HTML)), 'html.parser')
 posts = soup.find_all('div', {'class':'section_feed'})[:10]
 
 
+def parse_path_timeframe(timeframe):
+    result = None
+
+    if timeframe.lower() == 'a month ago':
+        result = BASE_DATE - timedelta(days=AVERGAGE_DAYS_IN_A_MONTH)
+    elif timeframe.lower() == 'a year ago':
+        result = BASE_DATE - timedelta(days=AVERGAGE_DAYS_IN_A_YEAR)
+    else:
+        try:
+            number, unit, _ = timeframe.split(' ', 3)
+            number = int(number)
+            if unit.startswith('month'):
+                number = number / AVERGAGE_DAYS_IN_A_MONTH
+            elif unit.startswith('year'):
+                number = number / AVERGAGE_DAYS_IN_A_YEAR
+            result = BASE_DATE - timedelta(days=number)
+        except:
+            pass
+
+    if not result:
+        print("COULD NOT PARSE TIMEFRAME:", timeframe)
+
+    return result
+
 for post in posts:
     poster = post.find('a', {'class':'tit_profile'})
     poster = poster.text
-    date = post.find('a', {'class':'desc_profile'})
-    date = date.text
+    timeframe = post.find('a', {'class':'desc_profile'})
+    timeframe = timeframe.text
+    date = parse_path_timeframe(timeframe)
     info = post.find('strong', {'class':'tit_feed'})
     if info:
         info = info.text
     
     print('==========================')
-    print(poster, date)
+    print(poster, date.strftime("%d/%m/%Y"), timeframe)
     print('--------------------------')
     if info:
         print(info)

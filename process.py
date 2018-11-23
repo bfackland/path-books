@@ -14,7 +14,7 @@ soup = BeautifulSoup(open('%s/%s' % (SOURCE_FOLDER, INDEX_HTML)), 'html.parser')
 posts = soup.find_all('div', {'class':'section_feed'})[:10]
 
 
-def parse_path_timeframe(timeframe):
+def parse_post_timeframe(timeframe):
     result = None
 
     if timeframe.lower() == 'a month ago':
@@ -23,7 +23,7 @@ def parse_path_timeframe(timeframe):
         result = BASE_DATE - timedelta(days=AVERGAGE_DAYS_IN_A_YEAR)
     else:
         try:
-            number, unit, _ = timeframe.split(' ', 3)
+            number, unit, _ = timeframe.split(' ', 2)
             number = int(number)
             if unit.startswith('month'):
                 number = number / AVERGAGE_DAYS_IN_A_MONTH
@@ -34,25 +34,39 @@ def parse_path_timeframe(timeframe):
             pass
 
     if not result:
-        print("COULD NOT PARSE TIMEFRAME:", timeframe)
+        print('COULD NOT PARSE TIMEFRAME:', timeframe)
 
     return result
+
+
+def parse_post_info(info):
+    location = None
+
+    if info.startswith('Arrived in '):
+        _, _, location = info.split(' ', 2)
+    elif info.startswith('At ') or info.startswith('In '):
+        _, location = info.split(' ', 1)
+
+    return location
+
 
 for post in posts:
     poster = post.find('a', {'class':'tit_profile'})
     poster = poster.text
     timeframe = post.find('a', {'class':'desc_profile'})
     timeframe = timeframe.text
-    date = parse_path_timeframe(timeframe)
+    date = parse_post_timeframe(timeframe)
     info = post.find('strong', {'class':'tit_feed'})
-    if info:
-        info = info.text
     
     print('==========================')
-    print(poster, date.strftime("%d/%m/%Y"), timeframe)
+    print(poster, date.strftime('%d/%m/%Y'), timeframe)
     print('--------------------------')
     if info:
-        print(info)
+        info = info.text
+        location = parse_post_info(info)
+        print("Info:", info)
+        if location:
+            print("Location:", location)
 
     image = post.find('img', {'class':'img_figure'})
     if image:
@@ -98,4 +112,3 @@ for post in posts:
                 print(thought)
                 break
 
-    #import pdb; pdb.set_trace()

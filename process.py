@@ -11,7 +11,7 @@ AVERGAGE_DAYS_IN_A_MONTH = AVERGAGE_DAYS_IN_A_YEAR / 12.0
 
 
 soup = BeautifulSoup(open('%s/%s' % (SOURCE_FOLDER, INDEX_HTML)), 'html.parser')
-posts = soup.find_all('div', {'class':'section_feed'})[:10]
+posts = soup.find_all('div', {'class':'section_feed'})
 
 
 def parse_post_timeframe(timeframe):
@@ -50,6 +50,13 @@ def parse_post_info(info):
     return location
 
 
+def parse_post_emotion(emotion):
+    if emotion.lower() not in ['laugh', 'surprise', 'happy', 'sad', 'love', 'comment', 'photo', 'thought']:
+        print("COULD NOT PARSE EMOTION:", emotion)
+
+    return emotion
+
+
 for post in posts:
     poster = post.find('a', {'class':'tit_profile'})
     poster = poster.text
@@ -86,6 +93,7 @@ for post in posts:
             emotion = response.find('span', {'class':'ico_path'})
             if emotion:
                 emotion = emotion.text
+                emotion = parse_post_emotion(emotion)
             print(person, emotion)
 
 #     info_cmt = post.find('div', {'class':'info_cmt'})

@@ -2,6 +2,9 @@ from bs4 import BeautifulSoup
 from os.path import exists
 from PIL import Image
 from datetime import datetime, timedelta
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import cm
+
 
 SOURCE_FOLDER = '/Users/wasl/Documents/Path backups/Path feed forever/'
 INDEX_HTML = 'webarchive-index.html'
@@ -11,7 +14,7 @@ AVERGAGE_DAYS_IN_A_MONTH = AVERGAGE_DAYS_IN_A_YEAR / 12.0
 
 
 soup = BeautifulSoup(open('%s/%s' % (SOURCE_FOLDER, INDEX_HTML)), 'html.parser')
-posts = soup.find_all('div', {'class':'section_feed'})
+posts = soup.find_all('div', {'class':'section_feed'})[:10]
 
 
 def parse_post_timeframe(timeframe):
@@ -56,6 +59,11 @@ def parse_post_emotion(emotion):
 
     return emotion
 
+
+page_width = 25*cm
+page_height = 20*cm
+margin = 2*cm
+canvas = canvas.Canvas('./books/example.pdf', pagesize=(page_width, page_height))
 
 for post in posts:
     poster = post.find('a', {'class':'tit_profile'})
@@ -120,3 +128,10 @@ for post in posts:
                 print(thought)
                 break
 
+    # render the page
+    if poster and image and image_exists:
+        canvas.drawString(x=margin, y=margin, text=poster)
+        canvas.drawImage(image=image_path, x=margin, y=margin*2, width=(page_width - 2*margin), height=(page_height - 3*margin))
+        canvas.showPage()
+
+canvas.save()

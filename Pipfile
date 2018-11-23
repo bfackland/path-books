@@ -13,6 +13,7 @@ name = "pypi"
 
 "beautifulsoup4" = "*"
 pillow = "*"
+reportlab = "*"
 
 
 [requires]

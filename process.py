@@ -131,7 +131,16 @@ for post in posts:
     # render the page
     if poster and image and image_exists:
         canvas.drawString(x=margin, y=margin, text=poster)
-        canvas.drawImage(image=image_path, x=margin, y=margin*2, width=(page_width - 2*margin), height=(page_height - 3*margin))
+        im_width, im_height = im.size
+        im_aspect = float(im_width) / float(im_height)
+        if im_aspect > 1:
+            width = int(page_width - 2*margin)
+            height = int(width / im_aspect)
+        else:
+            height = int(page_height - 3*margin)
+            width = int(height * im_aspect)
+
+        canvas.drawImage(image=image_path, x=margin, y=margin*2, width=width, height=height)
         canvas.showPage()
 
 canvas.save()

@@ -13,10 +13,6 @@ AVERGAGE_DAYS_IN_A_YEAR = 365.25
 AVERGAGE_DAYS_IN_A_MONTH = AVERGAGE_DAYS_IN_A_YEAR / 12.0
 
 
-soup = BeautifulSoup(open('%s/%s' % (SOURCE_FOLDER, INDEX_HTML)), 'html.parser')
-posts = soup.find_all('div', {'class':'section_feed'})[:10]
-
-
 def parse_post_timeframe(timeframe):
     result = None
 
@@ -60,87 +56,127 @@ def parse_post_emotion(emotion):
     return emotion
 
 
-page_width = 25*cm
-page_height = 20*cm
-margin = 2*cm
-canvas = canvas.Canvas('./books/example.pdf', pagesize=(page_width, page_height))
+def friendly_name(name):
+    if name == 'Anthony':
+        return 'Tony'
+    if name == 'Rachel':
+        return 'Ray'
+    if name == 'Lindsey':
+        return 'Lin'
 
-for post in posts:
-    poster = post.find('a', {'class':'tit_profile'})
-    poster = poster.text
-    timeframe = post.find('a', {'class':'desc_profile'})
-    timeframe = timeframe.text
-    date = parse_post_timeframe(timeframe)
-    info = post.find('strong', {'class':'tit_feed'})
+    return name
+
+
+def parse_posts(posts):
+    cards = []
+
+    for post in posts:
+        card = {
+            'emotions' : {},
+            'thoughts' : [],
+            }
+
+        poster = post.find('a', {'class':'tit_profile'})
+        poster = friendly_name(poster.text)
+        card['poster'] = poster
+
+        timeframe = post.find('a', {'class':'desc_profile'})
+        timeframe = timeframe.text
+        date = parse_post_timeframe(timeframe)
+        card['date'] = date
+
+        info = post.find('strong', {'class':'tit_feed'})
     
-    print('==========================')
-    print(poster, date.strftime('%d/%m/%Y'), timeframe)
-    print('--------------------------')
-    if info:
-        info = info.text
-        location = parse_post_info(info)
-        print("Info:", info)
-        if location:
-            print("Location:", location)
+        if info:
+            info = info.text
+            location = parse_post_info(info)
+            if location:
+                card['location'] = location
 
-    image = post.find('img', {'class':'img_figure'})
-    if image:
-        image_path = '%s%s' % (SOURCE_FOLDER, image['src'])
-        image_exists = exists(image_path)
-        print(image_path, image_exists)
-        if image_exists:
-            im = Image.open(image_path)
+        image = post.find('img', {'class':'img_figure'})
+        card['image'] = None
+        if image:
+            image_path = '%s%s' % (SOURCE_FOLDER, image['src'])
+            image_exists = exists(image_path)
+            card['image'] = image_path
 
-    empathy = post.find('div', {'class':'panel_empathy'})
-    if empathy:
-        responses = empathy.find_all('a', {'class':'link_empathy'})
-        for response in responses:
-            person = response.find('img', {'class':'img_profile'})
-            if person:
-                person = person['alt']
-            emotion = response.find('span', {'class':'ico_path'})
-            if emotion:
-                emotion = emotion.text
-                emotion = parse_post_emotion(emotion)
-            print(person, emotion)
+        empathy = post.find('div', {'class':'panel_empathy'})
+        if empathy:
+            responses = empathy.find_all('a', {'class':'link_empathy'})
+            for response in responses:
+                person = response.find('img', {'class':'img_profile'})
+                if person:
+                    person = friendly_name(person['alt'])
+                    emotion = response.find('span', {'class':'ico_path'})
+                    if emotion:
+                        emotion = emotion.text
+                        emotion = parse_post_emotion(emotion)
+                        if emotion in card['emotions'].keys():
+                            if person not in card['emotions'][emotion]:
+                                card['emotions'][emotion].append(person)
+                        else:
+                            card['emotions'][emotion] = [person, ]
 
-#     info_cmt = post.find('div', {'class':'info_cmt'})
-#     comment = None
-#     if info_cmt:
-#         cont_cmt = info_cmt.find('span', {'class':'cont_cmt'})
-#         if cont_cmt:
-#             spans = cont_cmt.find_all('span')
-#             for span in spans:
-#                 sub_span = span.find('span')
-#                 if sub_span:
-#                     comment = sub_span.text
-#                     print(comment)
-#                     break
+        #     info_cmt = post.find('div', {'class':'info_cmt'})
+        #     comment = None
+        #     if info_cmt:
+        #         cont_cmt = info_cmt.find('span', {'class':'cont_cmt'})
+        #         if cont_cmt:
+        #             spans = cont_cmt.find_all('span')
+        #             for span in spans:
+        #                 sub_span = span.find('span')
+        #                 if sub_span:
+        #                     comment = sub_span.text
+        #                     print(comment)
+        #                     break
 
-    desc_thought = post.find('p', {'class':'desc_thought'})
-    thought = None
-    if desc_thought:
-        spans = desc_thought.find_all('span')
-        for span in spans:
-            sub_span = span.find('span')
-            if sub_span:
-                thought = sub_span.text
-                print(thought)
-                break
+        desc_thought = post.find('p', {'class':'desc_thought'})
+        thought = None
+        if desc_thought:
+            spans = desc_thought.find_all('span')
+            for span in spans:
+                sub_span = span.find('span')
+                if sub_span:
+                    thought = sub_span.text
+                    card['thoughts'].append(thought)
+                    break
 
-    # render the page
-    if poster and image and image_exists:
-        canvas.drawString(x=margin, y=margin, text=poster)
-        im_width, im_height = im.size
-        im_aspect = float(im_width) / float(im_height)
-        if im_aspect > 1:
-            width = int(page_width - 2*margin)
-            height = int(width / im_aspect)
-        else:
-            height = int(page_height - 3*margin)
-            width = int(height * im_aspect)
+        print(card)
+        cards.append(card)
 
-        canvas.drawImage(image=image_path, x=margin, y=margin*2, width=width, height=height)
-        canvas.showPage()
+    return cards
 
-canvas.save()
+
+def main():
+    soup = BeautifulSoup(open('%s/%s' % (SOURCE_FOLDER, INDEX_HTML)), 'html.parser')
+    posts = soup.find_all('div', {'class':'section_feed'})[:10]
+    cards = parse_posts(posts)
+
+    page_width = 24.447*cm
+    page_height = 20.955*cm
+    margin = 2*cm
+    page = canvas.Canvas('./books/example.pdf', pagesize=(page_width, page_height))
+
+    for card in cards:
+        # render the page
+        if card['poster'] and card['image']:
+            page.drawString(x=margin, y=margin, text=card['poster'])
+            im = Image.open(card['image'])
+
+            im_width, im_height = im.size
+            im_aspect = float(im_width) / float(im_height)
+            if im_aspect > 1:
+                width = int(page_width - 2*margin)
+                height = int(width / im_aspect)
+            else:
+                height = int(page_height - 3*margin)
+                width = int(height * im_aspect)
+
+            page.drawImage(image=card['image'], x=margin, y=margin*2, width=width, height=height)
+            page.showPage()
+
+    page.save()
+
+
+if __name__ == "__main__":
+    main()

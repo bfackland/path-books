@@ -102,11 +102,15 @@ def parse_posts(posts):
                 card['location'] = location
 
         image = post.find('img', {'class':'img_figure'})
-        card['image'] = None
+        card['image_path'] = None
         if image:
             image_path = '%s%s' % (SOURCE_FOLDER, image['src'])
             image_exists = exists(image_path)
-            card['image'] = image_path
+            card['image_path'] = image_path
+
+            im = Image.open(card['image_path'])
+            im_width, im_height = im.size
+            card['image_aspect'] = float(im_width) / float(im_height)
 
         empathy = post.find('div', {'class':'panel_empathy'})
         if empathy:
@@ -204,19 +208,17 @@ def main():
     for card in cards:
         logging.debug(card)
         # render the page
-        if card['poster'] and card['image']:
-            im = Image.open(card['image'])
+        if card['poster'] and card['image_path']:
+            image_aspect = card['image_aspect']
 
-            im_width, im_height = im.size
-            im_aspect = float(im_width) / float(im_height)
-            if im_aspect > 1:
+            if image_aspect > 1:
                 width = int(page_width - 2*margin)
-                height = int(width / im_aspect)
+                height = int(width / image_aspect)
             else:
                 height = int(page_height - 3*margin)
-                width = int(height * im_aspect)
+                width = int(height * image_aspect)
 
-            page.drawImage(image=card['image'], x=margin, y=margin*2, width=width, height=height)
+            page.drawImage(image=card['image_path'], x=margin, y=margin*2, width=width, height=height)
             text = "%s (%s)" % (card['poster'], card['score'])
             page.drawString(x=margin, y=margin, text=text)
 

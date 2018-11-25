@@ -4,6 +4,8 @@ from PIL import Image
 from datetime import datetime, timedelta
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
+from pickle import loads, dumps
+import logging
 
 
 SOURCE_FOLDER = '/Users/wasl/Documents/Path backups/Path feed forever/'
@@ -11,6 +13,10 @@ INDEX_HTML = 'webarchive-index.html'
 BASE_DATE = datetime(year=2018, month=10, day=18)
 AVERGAGE_DAYS_IN_A_YEAR = 365.25
 AVERGAGE_DAYS_IN_A_MONTH = AVERGAGE_DAYS_IN_A_YEAR / 12.0
+CARDS_FILENAME = './cards.pickle'
+
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 def parse_post_timeframe(timeframe):
@@ -33,7 +39,7 @@ def parse_post_timeframe(timeframe):
             pass
 
     if not result:
-        print('COULD NOT PARSE TIMEFRAME:', timeframe)
+        logging.error('COULD NOT PARSE TIMEFRAME:', timeframe)
 
     return result
 
@@ -50,8 +56,10 @@ def parse_post_info(info):
 
 
 def parse_post_emotion(emotion):
-    if emotion.lower() not in ['laugh', 'surprise', 'happy', 'sad', 'love', 'comment', 'photo', 'thought']:
-        print("COULD NOT PARSE EMOTION:", emotion)
+    emotion = emotion.lower()
+
+    if emotion not in ['laugh', 'surprise', 'happy', 'sad', 'love', 'comment', 'photo', 'thought']:
+        logging.error("COULD NOT PARSE EMOTION:", emotion)
 
     return emotion
 
@@ -141,16 +149,52 @@ def parse_posts(posts):
                     card['thoughts'].append(thought)
                     break
 
-        print(card)
+        logging.debug(card)
         cards.append(card)
 
     return cards
 
 
+def score_cards(cards):
+    for card in cards:
+        score = 0
+        for emotion, people in card['emotions'].items():
+            if emotion == 'love':
+                score += 2 * len(people)
+            elif emotion == 'laugh':
+                score += 1.5 * len(people)
+            elif emotion == 'happy':
+                score += 1 * len(people)
+        card['score'] = score
+
+    return cards
+
+
+def store_cards(cards):
+    logging.info("Writing cards to: %s" % CARDS_FILENAME)
+    data = dumps(cards)
+    file = open(CARDS_FILENAME, 'wb')
+    file.write(data)
+    file.close()
+
+
+def load_cards():
+    logging.info("Loading cards from: %s" % CARDS_FILENAME)
+    data = open(CARDS_FILENAME, 'rb').read()
+    cards = loads(data)
+    return cards
+
+
 def main():
-    soup = BeautifulSoup(open('%s/%s' % (SOURCE_FOLDER, INDEX_HTML)), 'html.parser')
-    posts = soup.find_all('div', {'class':'section_feed'})[:10]
-    cards = parse_posts(posts)
+    if not exists(CARDS_FILENAME):
+        logging.info("Parsing posts in HTML and generating cards..")
+        soup = BeautifulSoup(open('%s/%s' % (SOURCE_FOLDER, INDEX_HTML)), 'html.parser')
+        posts = soup.find_all('div', {'class':'section_feed'})[:10]
+        cards = parse_posts(posts)
+        cards = score_cards(cards)
+        store_cards(cards)
+    else:
+        cards = load_cards()
 
     page_width = 24.447*cm
     page_height = 20.955*cm
@@ -158,9 +202,9 @@ def main():
     page = canvas.Canvas('./books/example.pdf', pagesize=(page_width, page_height))
 
     for card in cards:
+        logging.debug(card)
         # render the page
         if card['poster'] and card['image']:
-            page.drawString(x=margin, y=margin, text=card['poster'])
             im = Image.open(card['image'])
 
             im_width, im_height = im.size
@@ -173,6 +217,9 @@ def main():
                 width = int(height * im_aspect)
 
             page.drawImage(image=card['image'], x=margin, y=margin*2, width=width, height=height)
+            text = "%s (%s)" % (card['poster'], card['score'])
+            page.drawString(x=margin, y=margin, text=text)
+
             page.showPage()
 
     page.save()

@@ -206,7 +206,7 @@ def main():
     page_width = 24.447*cm
     page_height = 20.955*cm
     margin = 2*cm
-    page = canvas.Canvas('./books/example.pdf', pagesize=(page_width, page_height))
+    pdf = canvas.Canvas('./books/example.pdf', pagesize=(page_width, page_height))
 
     cards = sorted(cards, key=lambda card: card['score'])
     # reverse to get highest score at the start
@@ -227,17 +227,20 @@ def main():
                 height = int(page_height - 3*margin)
                 width = int(height * image_aspect)
 
-            page.drawImage(image=card['image_path'], x=margin, y=margin*2, width=width, height=height)
+            pdf.drawImage(image=card['image_path'], x=margin, y=margin*2, width=width, height=height)
             text = "%s (%s)" % (card['poster'], card['score'])
-            page.drawString(x=margin, y=margin, text=text)
+            pdf.drawString(x=margin, y=margin, text=text)
 
-            page.showPage()
+            pdf.showPage()
+
+            card['used'] = True
+
             count += 1
         
             if count == 20:
                 break
 
-    page.save()
+    pdf.save()
 
 
 if __name__ == "__main__":

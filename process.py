@@ -8,15 +8,19 @@ from pickle import loads, dumps
 import logging
 
 
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.DEBUG,
+    datefmt='%Y-%m-%d %H:%M:%S')
+logger = logging.getLogger(__name__)
+
+
 SOURCE_FOLDER = '/Users/wasl/Documents/Path backups/Path feed forever/'
 INDEX_HTML = 'webarchive-index.html'
 BASE_DATE = datetime(year=2018, month=10, day=18)
 AVERGAGE_DAYS_IN_A_YEAR = 365.25
 AVERGAGE_DAYS_IN_A_MONTH = AVERGAGE_DAYS_IN_A_YEAR / 12.0
-CARDS_FILENAME = './cards.pickle'
-
-
-logging.basicConfig(level=logging.DEBUG)
+CARDS_FILENAME = './cards/cards.pickle'
 
 
 def parse_post_timeframe(timeframe):
@@ -39,7 +43,7 @@ def parse_post_timeframe(timeframe):
             pass
 
     if not result:
-        logging.error('COULD NOT PARSE TIMEFRAME:', timeframe)
+        logger.error('COULD NOT PARSE TIMEFRAME:', timeframe)
 
     return result
 
@@ -59,7 +63,7 @@ def parse_post_emotion(emotion):
     emotion = emotion.lower()
 
     if emotion not in ['laugh', 'surprise', 'happy', 'sad', 'love', 'comment', 'photo', 'thought']:
-        logging.error("COULD NOT PARSE EMOTION:", emotion)
+        logger.error("COULD NOT PARSE EMOTION:", emotion)
 
     return emotion
 
@@ -106,11 +110,11 @@ def parse_posts(posts):
         if image:
             image_path = '%s%s' % (SOURCE_FOLDER, image['src'])
             image_exists = exists(image_path)
-            card['image_path'] = image_path
-
-            im = Image.open(card['image_path'])
-            im_width, im_height = im.size
-            card['image_aspect'] = float(im_width) / float(im_height)
+            if image_exists:
+                card['image_path'] = image_path
+                im = Image.open(card['image_path'])
+                im_width, im_height = im.size
+                card['image_aspect'] = float(im_width) / float(im_height)
 
         empathy = post.find('div', {'class':'panel_empathy'})
         if empathy:
@@ -153,7 +157,6 @@ def parse_posts(posts):
                     card['thoughts'].append(thought)
                     break
 
-        logging.debug(card)
         cards.append(card)
 
     return cards
@@ -175,7 +178,7 @@ def score_cards(cards):
 
 
 def store_cards(cards):
-    logging.info("Writing cards to: %s" % CARDS_FILENAME)
+    logger.info("Writing cards to: %s" % CARDS_FILENAME)
     data = dumps(cards)
     file = open(CARDS_FILENAME, 'wb')
     file.write(data)
@@ -183,7 +186,7 @@ def store_cards(cards):
 
 
 def load_cards():
-    logging.info("Loading cards from: %s" % CARDS_FILENAME)
+    logger.info("Loading cards from: %s" % CARDS_FILENAME)
     data = open(CARDS_FILENAME, 'rb').read()
     cards = loads(data)
     return cards
@@ -191,9 +194,9 @@ def load_cards():
 
 def main():
     if not exists(CARDS_FILENAME):
-        logging.info("Parsing posts in HTML and generating cards..")
+        logger.info("Parsing posts in HTML and generating cards..")
         soup = BeautifulSoup(open('%s/%s' % (SOURCE_FOLDER, INDEX_HTML)), 'html.parser')
-        posts = soup.find_all('div', {'class':'section_feed'})[:10]
+        posts = soup.find_all('div', {'class':'section_feed'})
         cards = parse_posts(posts)
         cards = score_cards(cards)
         store_cards(cards)
@@ -205,10 +208,16 @@ def main():
     margin = 2*cm
     page = canvas.Canvas('./books/example.pdf', pagesize=(page_width, page_height))
 
+    cards = sorted(cards, key=lambda card: card['score'])
+    # reverse to get highest score at the start
+    cards.reverse()
+
+    count = 0
+
     for card in cards:
-        logging.debug(card)
         # render the page
-        if card['poster'] and card['image_path']:
+        if card['poster'] and card['image_path'] and card['image_aspect'] > 1.3:
+            logger.debug(card)
             image_aspect = card['image_aspect']
 
             if image_aspect > 1:
@@ -223,6 +232,10 @@ def main():
             page.drawString(x=margin, y=margin, text=text)
 
             page.showPage()
+            count += 1
+        
+            if count == 20:
+                break
 
     page.save()
 

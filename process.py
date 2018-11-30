@@ -35,9 +35,9 @@ def parse_post_timeframe(timeframe):
             number, unit, _ = timeframe.split(' ', 2)
             number = int(number)
             if unit.startswith('month'):
-                number = number / AVERGAGE_DAYS_IN_A_MONTH
+                number = number * AVERGAGE_DAYS_IN_A_MONTH
             elif unit.startswith('year'):
-                number = number / AVERGAGE_DAYS_IN_A_YEAR
+                number = number * AVERGAGE_DAYS_IN_A_YEAR
             result = BASE_DATE - timedelta(days=number)
         except:
             pass
@@ -81,11 +81,13 @@ def friendly_name(name):
 
 def parse_posts(posts):
     cards = []
+    position = 0
 
     for post in posts:
         card = {
             'emotions' : {},
             'thoughts' : [],
+            'position' : position,
             }
 
         poster = post.find('a', {'class':'tit_profile'})
@@ -95,6 +97,7 @@ def parse_posts(posts):
         timeframe = post.find('a', {'class':'desc_profile'})
         timeframe = timeframe.text
         date = parse_post_timeframe(timeframe)
+        card['timeframe'] = timeframe
         card['date'] = date
 
         info = post.find('strong', {'class':'tit_feed'})
@@ -158,6 +161,7 @@ def parse_posts(posts):
                     break
 
         cards.append(card)
+        position += 1
 
     return cards
 
@@ -208,16 +212,19 @@ def main():
     margin = 2*cm
     pdf = canvas.Canvas('./books/example.pdf', pagesize=(page_width, page_height))
 
+    cards = [ x for x in cards if x['poster'] and x['image_path'] and x['image_aspect'] > 1.3 ]
     cards = sorted(cards, key=lambda card: card['score'])
     # reverse to get highest score at the start
     cards.reverse()
 
-    count = 0
+    cards = cards[:20]
+    cards = sorted(cards, key=lambda card: card['position'])
+
+    logger.info("Generating PDF..")
 
     for card in cards:
         # render the page
-        if card['poster'] and card['image_path'] and card['image_aspect'] > 1.3:
-            logger.debug(card)
+            #logger.debug(card)
             image_aspect = card['image_aspect']
 
             if image_aspect > 1:
@@ -228,19 +235,17 @@ def main():
                 width = int(height * image_aspect)
 
             pdf.drawImage(image=card['image_path'], x=margin, y=margin*2, width=width, height=height)
-            text = "%s (%s)" % (card['poster'], card['score'])
+            text = '; '.join([ str(x) for x in
+                               (card['poster'], card['score']) ])
             pdf.drawString(x=margin, y=margin, text=text)
 
             pdf.showPage()
 
             card['used'] = True
 
-            count += 1
-        
-            if count == 20:
-                break
-
+    logger.info("Saving PDF..")
     pdf.save()
+    logger.info("All done.")
 
 
 if __name__ == "__main__":
